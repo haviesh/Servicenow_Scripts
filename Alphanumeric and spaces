@@ -1,0 +1,26 @@
+function onChange(control, oldValue, newValue, isLoading) {
+   if (isLoading || newValue == '') {
+             return;
+   }
+	
+	 var a = g_form.getValue('Variable_Name');
+	 
+ if(a.match(' ')){
+alert("Property Name cannot contain spaces");
+	 return false;
+ //g_form.clearValue('Variable_Name');
+   }
+	else{
+	var pattern = /^[0-9a-zA-Z-_]*$/;
+if(!pattern.test(newValue))
+{
+alert('Special Characters are not allowed please edit the app name Correctly');
+// g_form.setValue('Variable_Name', ''); // adjust field name accordingly if you want to blank it out.
+ }
+else{
+	g_form.setValue('Variable_Name', a);
+}
+
+	}
+   
+}
