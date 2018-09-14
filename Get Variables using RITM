@@ -1,0 +1,23 @@
+function onChange(control, oldValue, newValue, isLoading) {
+   if (isLoading || newValue == '') {
+      return;
+   }
+	var env = g_form.getValue('old_ritm');
+	var Rec = new GlideAjax('rebuild_app');
+Rec.addParam('sysparm_name','client');
+Rec.addParam('sys_id',env);
+Rec.getXMLAnswer(setEnvConfig);
+	
+	function setEnvConfig(response){
+		answer= JSON.parse(response);
+		g_form.setValue('CELL_NAME1',answer.cell1);
+		g_form.setValue('Env',answer.cell2);
+		g_form.setValue('APP_DETAILS',answer.cell3);
+		g_form.setValue('EMAIL_RECIPIENTS',answer.cell4);
+		g_form.setValue('RITM_NUMBER',answer.cell5);
+		g_form.setValue('REQ_NUMBER',answer.cell6);
+	
+		
+	}
+
+}
