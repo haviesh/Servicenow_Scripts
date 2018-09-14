@@ -1,0 +1,33 @@
+var rebuild_app  = Class.create();
+rebuild_app.prototype = Object.extendsObject(AbstractAjaxProcessor, {
+	
+	client : function() {
+		
+		var envName = this.getParameter('sys_id');
+		gs.log('Parameter Passed: ' +envName);
+		var envDetails = {};
+			
+			var gr = new GlideRecord('sc_req_item');
+			gr.addQuery('sys_id', envName);
+			gr.query();
+			
+			if(gr.next()) {
+				gs.log('Entered loop');
+				envDetails.cell1 = gr.variables.CELL_NAME1 + '';
+				envDetails.cell2 = gr.variables.Env + '';
+				envDetails.cell3 = gr.variables.APP_DETAILS + '';
+				envDetails.cell4 = gr.variables.EMAIL_RECIPIENTS + '';
+				envDetails.cell5 = gr.variables.RITM_NUMBER+'';
+				envDetails.cell6 = gr.variables.REQ_NUMBER+'';
+				
+				
+			
+			}
+		//gs.log('Start date: ' + envDetails.database );	
+	        var json = new JSON();
+			var data = json.encode(envDetails);
+		
+			return data.toString();	
+		},
+	});
+
