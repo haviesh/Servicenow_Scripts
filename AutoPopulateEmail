@@ -1,0 +1,19 @@
+function onLoad() {
+   //Type appropriate comment here, and begin script below
+	
+	var user = g_user.userID;
+	//var user = g_form.getReference(g_user.userID);
+
+	//alert(user);
+	
+	var gr= new GlideRecord('sys_user');
+	gr.addQuery('sys_id',user);
+	gr.query();
+	
+	while(gr.next()
+		{
+		g_form.setValue('email_vaiable',gr.email);
+			alert(email_variable);
+		}
+	
+}
