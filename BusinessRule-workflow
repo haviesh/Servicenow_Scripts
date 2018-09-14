@@ -1,0 +1,11 @@
+(function executeRule(current, previous /*null when async*/) {
+gs.log('Business Rule started for Ping Host');
+	gs.addInfoMessage("Business Rule started for Ping Host");
+	//var wfid = 'ba60f5d913a06f0460ee30128144b0b3';
+	gs.log('workflow started for Failed Ping Events');
+	var wflw = new Workflow();
+	// wf.startFlow(wfid,current,'update');
+wflw.startFlow(wflw.getWorkflowFromName('Ping Events'), current, 'update');
+	gs.log('workflow ended for Failed Ping Events');
+
+})(current, previous);
