@@ -1,0 +1,24 @@
+function onChange(control, oldValue, newValue, isLoading) {
+   if (isLoading || newValue == '') {
+      return;
+   }
+	
+	var t= g_form.getValue('environment_esqm');// environment_esqm (Reference to previous variable)
+		//alert(t);
+	    
+		var gr = new GlideRecord("sys_user_group");   
+		gr.addQuery("name", t);   
+		gr.query();
+		
+		if(gr.next())
+			{
+				var k=gr.sys_id;
+				//alert(k);
+				
+			g_form.setValue('temp2',k);
+					//alert(k);
+
+			}
+		
+   
+}
