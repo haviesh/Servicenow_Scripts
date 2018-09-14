@@ -1,0 +1,33 @@
+answer = ifScript();
+
+function ifScript() {
+
+var incident_ci=current.cmdb_ci;
+
+var queryString = "cmdb_ci="+incident_ci+"^u_event_class=3afe7b01a818c5005ec9427ed941f253^u_incident_type=monitoring_event^short_descriptionLIKEfailed ping from^sys_created_onRELATIVEGE@minute@ago@20";
+
+var gr = new GlideRecord('incident');
+
+gr.addEncodedQuery(queryString);
+
+gr.query();
+
+ //gs.log("Incidents in last 60 mins with same CI : " + gr.getRowCount());
+if(gr.getRowCount()>1)
+
+{
+
+return 'yes';
+
+}
+
+ 
+
+else
+
+{
+
+return 'no';
+
+}
+}
