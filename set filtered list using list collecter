@@ -1,0 +1,46 @@
+function onChange(control, oldValue, newValue, isLoading) {
+   if (isLoading || newValue == '') {
+      return;
+   }
+	var hostamount = g_form.getValue('NODE_SCOPE');
+	if(hostamount == 'All_Nodes')
+		{
+			//alert("BEGIN IF");
+			var env = g_form.getValue('Env');
+			//alert("INSTANCE: " + instance_name);
+			var cellname;
+			var celln = g_form.getValue('CELL_NAME');
+			var cellesqm = g_form.getValue('cell_names_esqm');
+			if(celln!="")
+				{
+					cellname = g_form.getValue('CELL_NAME');
+				}
+			else if(cellesqm!="")
+				{
+					cellname = g_form.getValue('cell_names_esqm');
+				}
+			//alert("ENV: " + env);
+			var clustername = g_form.getValue('cluster_name');
+			//alert("LOB: " + lob);
+			var sys = "";
+			//alert("START CLIENT SCRIPT");
+			var ga = new GlideAjax('get_node_names_webshp');
+			//alert("NEW AJAX");
+			ga.addParam("sysparm_name","getNodes");
+			ga.addParam("env",env);
+			ga.addParam("cellname",cellname);
+			ga.addParam("clustername",clustername);
+			ga.addParam("temp3","");
+			//alert("ADD PARAM");
+			ga.getXMLWait();
+			var output = ga.getAnswer();
+			//alert(val);
+
+		   //Type appropriate comment here, and begin script below
+
+			//alert('ansewer' +output);
+			g_form.setValue('temp3', output);
+		}
+	
+ 
+}
