@@ -1,0 +1,111 @@
+function onChange(control, oldValue, newValue, isLoading) {
+   if (isLoading || newValue == '') {
+      return;
+   }
+	
+	var env = g_form.getValue('Env');
+	var cell;
+	if(env == 'ESQM')
+		{
+			cell = g_form.getValue('cell_names_esqm');
+		}
+	else
+		{
+			cell = g_form.getValue('CELL_NAME');
+		}
+	var op = g_form.getValue("NODE_SCOPE");
+	g_form.setValue("temp3","");
+	var count = 0;
+	if(op == 'All_Nodes')
+		{
+			var gr = new GlideRecord("u_oa_preprod_websph");
+			gr.orderBy('u_node_name');
+			gr.addQuery("u_environment",g_form.getValue("Env"));
+			gr.addQuery("u_cluster_name",g_form.getValue("cluster_name"));
+			gr.addQuery("u_cell_name",cell);
+			gr.query();
+			var vall = "";
+			while(gr.next())
+				{
+						if(count == 0)
+						{
+							vall = gr.u_node_name;
+						}
+						else
+						{
+							var testtt = gr.u_node_name;
+							if(vall.includes(testtt))
+								{
+									//alert("CONTAINS");
+								}
+							else
+								{
+									vall = vall + "," + gr.u_node_name;
+								}
+						}
+					count++;
+				}
+			g_form.setValue("temp3",vall);
+		}
+	else if(op == 'Selected_Nodes')
+		{
+			var grx = new GlideRecord("u_oa_preprod_websph");
+			grx.orderBy('u_node_name');
+			grx.addQuery("u_environment",g_form.getValue("Env"));
+			grx.addQuery("u_cluster_name",g_form.getValue("cluster_name"));
+			grx.addQuery("u_cell_name",cell);
+			grx.query();
+			var val = "";
+			//alert("WHILE");
+			while(grx.next())
+				{
+					//alert("IN WHILE");
+					if(count == 0)
+						{
+							val = grx.u_node_name;
+						}
+					else
+						{
+							var testt = grx.u_node_name;
+							if(val.includes(testt))
+								{
+									//alert("CONTAINS");
+								}
+							else
+								{
+									val = val + "," + grx.u_node_name;
+								}
+						}
+					count++;
+					//alert("VAL IS: " + val);
+				}
+			var test = [];
+			val = val.split(",");
+			count2 = -1;
+			var con = '';
+			var con1 = '';
+			//var leftBucket = gel("nodeNames" + "_select_0");
+			var rightBucket = document.getElementById("nodeNames" + '_select_1');
+			var leftBucket = document.getElementById("nodeNames" + '_select_0');
+			leftBucket.options.length = 0;
+			var documentFragment = document.createDocumentFragment();
+			   for (var i = 0; i < val.length; i++) 
+					   {
+							   var option = document.createElement("option");
+							   option.text = val[i];
+							   option.value = val[i];
+							   documentFragment.appendChild(option);
+					   }
+			leftBucket.appendChild(documentFragment);
+			leftBucket.style.height = "150px";
+			rightBucket.style.height = "150px";
+			document.getElementById('nodeNames_select_0_search_row').style.display="none";
+			document.getElementById('nodeNames_select_1_search_row').style.display="none";
+		}
+	else
+		{
+			g_form.setValue("temp3","");
+		}
+   //Type appropriate comment here, and begin script below
+   
+}
