@@ -1,0 +1,25 @@
+function onChange(control, oldValue, newValue, isLoading) {
+   if (isLoading || newValue == '') {
+      return;
+   }
+		//alert("ON CHANGE CLUSTER");
+		var list = "nodeNames";
+		var leftBucket = gel(list + '_select_0');
+		var rightBucket = gel(list + '_select_1');
+		//alert("BUCKETS");
+		var selectedOptions = rightBucket.options;
+		//alert("OPTIONS");
+		var selectedIDs = [];
+		var index = 0;
+		//alert("BE FOR");
+		for(var count = 0; count < selectedOptions.length; count++)
+			{
+				//alert("ENTER...FOR");
+				selectedIDs[index] = count;
+				index++;
+			}
+		//alert("MOVE OPTIONS");
+		moveSelectedOptions(selectedIDs, rightBucket, leftBucket, '--None--');
+   //Type appropriate comment here, and begin script below
+   
+}
