@@ -1,0 +1,55 @@
+var get_node_names_webshp = Class.create();
+get_node_names_webshp.prototype = Object.extendsObject(AbstractAjaxProcessor, {
+
+    getNodes: function() {
+		//set up variables
+		var env = this.getParameter('env');
+		var cellname = this.getParameter('cellname');
+		var clustername = this.getParameter('clustername');
+		var sys_ids = this.getParameter('temp3');
+		//gs.addInfoMessage("VAR: " + change_number_sample);
+		var gr = new GlideRecord("u_oa_preprod_websph");
+		var count = 0;
+		var concat = "";
+		var test = "";
+		var version = "";
+		//var instance = current.variables.Instance.toString();
+		//query
+		if(sys_ids!="")
+			{
+				var sys = sys_ids.split(',');
+				for(var j = 0; j < sys.length; j++)
+					{
+						var gx = new GlideRecord("u_oa_preprod_websph");
+						gx.addEncodedQuery('sys_id='+sys[j]);
+						gx.query();
+						gx.next();
+						if(j == 0)
+							{
+								concat = gx.u_node_name;
+								//version = gx.u_tc_version;
+							}
+						else
+							{
+								test = gx.u_node_name;
+								concat = concat + "," + test;
+							}
+					}
+			}
+		else
+			{
+				gr.addEncodedQuery("u_environment=" + env + "^u_cell_name=" + cellname + "^u_cluster_name=" + clustername);
+				gr.query();
+				//get each host name for the selected instance and put them all together
+				while(gr.next())
+					{
+						//gs.addInfoMessage("HOST: " + gr.u_host_names);
+						concat = gr.u_node_name + "," + concat;
+						//version = gr.u_tc_version;
+					}
+			concat = concat.substring(0,concat.length-1);
+			}
+		
+		return concat;
+	}
+});
