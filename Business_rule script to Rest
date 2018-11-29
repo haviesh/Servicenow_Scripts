@@ -1,0 +1,97 @@
+(function executeRule(current, previous /*null when async*/) {
+	
+	var incident_number = current.number;
+	gs.log('Restart/Reboot on Error Log script started');
+	gs.log('Restart/Reboot on Error Log - ' +incident_number);
+	
+	var incident_description = current.description;
+	var lines = incident_description.split(/\r\n|\r|\n/);
+	var Workstation_name = [];
+	
+	for (var count=0; count<lines.length; count++){
+		var line_number1 = lines[count].contains("= WORKSTATION NAME       :");
+		var line_number2 = lines[count].contains("= JOBSTREAM ID	:");
+		var line_number3 = lines[count].contains("= JOBNAME	:");
+		
+		if(line_number1 == true || line_number2 == true || line_number3 == true){
+			lines[count] = lines[count].replace(/\s/g, '');
+			
+			var split = lines[count].split(":");
+			gs.log('Restart/Reboot on Error Log - ' +split[1]);
+			
+			if(Workstation_name == ""){
+				Workstation_name = split[1];
+			}
+			else{
+				Workstation_name = Workstation_name +'%3B'+ split[1];
+			}
+			
+			gs.log('Restart/Reboot on Error Log - ' +Workstation_name);
+			
+			//REST message to GET the JOB LOG
+			try {
+				var rest_message = new sn_ws.RESTMessageV2('Restart/Reboot for Error Logs', 'Get Job log');
+				rest_message.setStringParameterNoEscape('WORKSTATION_NAME', Workstation_name);
+				rest_message.setStringParameterNoEscape('PLAN_ID', 'current');
+				
+				//override authentication profile
+				//authentication type ='basic'/ 'oauth2'
+				//r.setAuthentication(authentication type, profile name);
+				
+				var response = rest_message.execute();
+				var responseBody = response.getBody();
+				gs.log('Restart/Reboot on Error Log - ' +responseBody);
+				var httpStatus = response.getStatusCode();
+			}
+			catch(ex) {
+				var message = ex.getMessage();
+			}
+			
+			//Here Comes the script to Rerun and if success the ticket gets closed else retry and if failed again keep the ticket open and add notes "please rerun manually"
+			
+			// 			try {
+				// 				var r = new sn_ws.RESTMessageV2('Restart/Reboot for Error Logs', 'Rerun the job');
+				// 				r.setStringParameterNoEscape('JOB_ID', Workstation_name);
+				// 				r.setStringParameterNoEscape('PLAN_ID', 'current');
+				
+				// 				//override authentication profile
+				// 				//authentication type ='basic'/ 'oauth2'
+				// 				//r.setAuthentication(authentication type, profile name);
+				
+				// 				var response2 = r.execute();
+				// 				var responseBody2 = response2.getBody();
+				// 				var httpStatus2 = response2.getStatusCode();
+				// 			}
+				// 			catch(ex) {
+					// 				var message = ex.getMessage();
+					// 			}
+					
+					//if (httpStatus2 == 201){
+						var snow = new GlideAggregate('incident');
+						snow.addQuery('number',incident_number);
+						snow.query();
+						while (snow.next()) {
+							//gs.log('Incident-Demo - ' +snow2.number);
+							snow.close_notes = "ODSH is resolved using Business Rule for this incident ticket - "+incident_number +" and the job is automatically restarted.";
+							snow.close_code = '06953b779d2320009546a859ca3328b4';
+							snow.close_code = "Solved (Permanently)";
+							snow.u_resolver_group = "009e0260a1bbd5002ca72f6345b0058b";
+							snow.resolved_by = "e0ae904b116001000ece915f835ec9d0";
+							snow.state = 6;
+							snow.update();
+							
+							// 			current.close_notes = "ODSH is resolved using Business Rule for incident ticket "+incident_number +" and this job is automatically restarted.";
+							// 			//snow2.close_code = '06953b779d2320009546a859ca3328b4';
+							// 			current.close_code = "Solved (Permanently)";
+							// 			current.u_resolver_group = "009e0260a1bbd5002ca72f6345b0058b";
+							// 			current.resolved_by = "e0ae904b116001000ece915f835ec9d0";
+							// 			current.state = 6;
+							// 			//snow2.update();
+							// 			gs.log('Restart/Reboot on Error Log script ended');
+							
+						}
+						//}
+						gs.log('Restart/Reboot on Error Log script ended');
+					}
+				}
+})(current, previous);
