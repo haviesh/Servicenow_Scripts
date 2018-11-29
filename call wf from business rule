@@ -1,0 +1,16 @@
+(function executeRule(current, previous /*null when async*/) {
+gs.log('Business Rule started for Ping Host','HK Ping');
+	gs.addInfoMessage("Business Rule started for Ping Host");
+	var wfid = '33af868613b8670060ee30128144b026';
+	//var wfid = 'ba60f5d913a06f0460ee30128144b0b3';
+	gs.log('workflow started for Failed Ping Events','HK Ping');
+
+	var wflw = new Workflow();
+	gs.log('workflow started for Failed Ping Events2 ','HK Ping');
+wflw.startFlow(wfid,current,'update');
+//wflw.startFlow('646c3180db4d6b0880f07d8bbf961945', current, 'update');
+	gs.log('workflow ended for Failed Ping Events','HK Ping');
+	
+	
+
+})(current, previous);
