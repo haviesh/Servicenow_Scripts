@@ -1,0 +1,118 @@
+function onChange(control, oldValue, newValue, isLoading) {
+  if(isLoading) {
+		 return;
+	}
+	
+	var collectorName = 'environment';
+	var height = '8'; //Optional
+	var width = '250'; //Optional
+
+	var filterString = 'u_projectid=' + newValue;   // filter environments based on projectID
+	// var filterString = 'u_projectid=' + 'projectID';   // filter environments based on projectID
+			
+   if(window==null) //CHECK IF SERVICE PORTAL
+	   {
+		  //service portal
+		   var ajax = new GlideAjax('ESQM_populate_environment');
+			ajax.addParam('sysparm_name','ESQM_populate_environment');
+			ajax.addParam('sysparm_projectid',newValue);
+
+			ajax.getXML(getAnswer);   
+	   }
+	else
+		{
+			//NOT SERVICE PORTAL
+			//Apply a default filter to the list collector variable
+	
+
+		g_form.setDisplay(collectorName, false);
+		setCollectorFilter();
+
+
+	// Set the slush bucket sizes.	
+	var leftBucket = $(collectorName + '_select_0');
+	var rightBucket = $(collectorName + '_select_1');
+	/*
+	if(height && g_form.getControl(collectorName)){
+		//Adjust the bucket length (default is 18)
+		leftBucket.size = height;
+		rightBucket.size = height;
+	}
+
+	if(width && g_form.getControl(collectorName)){
+		//Adjust the bucket width (default is 340)
+		leftBucket.style.width = width;
+		rightBucket.style.width = width;
+	}
+	*/
+	//Above script crashes ATF
+
+	//Fix the expanding item preview issue  
+	//$(collectorName + 'recordpreview').up('td').setAttribute('colSpan', '3');	
+
+	// Loop through each value and remove it. Only if the choice has actually changed!!
+	if( oldValue != newValue ) {		
+		while(rightBucket.firstChild) {
+			if(rightBucket.firstChild != null && rightBucket.firstChild != '') {
+				rightBucket.removeChild(rightBucket.firstChild);
+			}
+		}
+	}	
+		
+			
+			function setCollectorFilter(){
+	
+		//Test if the g_filter property is defined on our list collector.
+		//If it hasn't rendered yet, wait 100ms and try again.
+		if (eval('typeof(' + collectorName + 'g_filter)') == 'undefined' ) {
+			setTimeout(setCollectorFilter, 100);
+			return;
+		}
+		//Find the filter elements
+		var fil = gel('ep');
+		
+		//Reset the filter query
+		eval(collectorName + 'g_filter.reset()');
+		eval(collectorName + 'g_filter.setQuery("' + filterString + '")');
+		eval(collectorName + 'acRequest(null)');
+		//Redisplay the list collector variable
+		g_form.setDisplay(collectorName, true);
+	}
+			
+		}
+}
+
+function getAnswer(response)
+{
+	var answer = response.responseXML.documentElement.getAttribute("answer");
+	
+	g_form.setValue('environment',answer);
+}
+
+#====================================================================================================================
+=================================== Script Include =====================================================
+var ESQM_populate_environment = Class.create();
+ESQM_populate_environment.prototype = Object.extendsObject(AbstractAjaxProcessor, {
+	ESQM_populate_environment:function()
+	{
+	
+	var projectID = this.getParameter('sysparm_projectid');
+	var envstringssysid='';
+		var gr = new GlideRecord('u_esqm_environments');
+		gr.addQuery('u_projectid',projectID);		
+		gr.query();
+		
+			while(gr.next())
+				{
+					
+					//envstring += gr.u_environments +',';
+					envstringssysid += gr.sys_id.toString() +',';
+				}
+	
+	
+		
+	return envstringssysid;
+		
+	}
+    
+});
