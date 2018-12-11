@@ -1,0 +1,20 @@
+var x = 0;
+workflow.scratchpad.count = x;
+
+var names = current.variables.v_temp;
+var noofvm = names.toString().split(',');
+workflow.scratchpad.vmmaxnum = noofvm.length;
+var a1 = workflow.scratchpad.count;
+a1.toString();
+var a2 = noofvm[a1];
+workflow.scratchpad.vmname = a2;
+
+answer = ifScript();
+ 
+function ifScript(){
+if (workflow.scratchpad.count<workflow.scratchpad.vmmaxnum-1){
+	workflow.scratchpad.count = workflow.scratchpad.count + 1;
+	return 'yes';
+}	
+	return 'no';
+} 
