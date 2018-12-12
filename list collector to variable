@@ -1,0 +1,33 @@
+   function test_1()
+{
+	var appNames = g_form.getValue("app_names");
+	var splitNames = appNames.split(",");
+	var names;
+	for(var count= 0; count < splitNames.length; count++)
+		{
+			//alert(count);
+			var gr = new GlideRecord("u_oa_preprod_websph");
+			gr.addQuery("sys_id",splitNames[count]);
+			gr.query();
+			gr.next();
+			if(count == 0)
+				{
+					names = gr.u_application_name + ",";
+				}
+			else
+				{
+					names = names + "," + gr.u_application_name;
+				}
+			//alert(names);
+		}
+	g_form.setValue("application_name",names);
+
+}
+function onChange(control, oldValue, newValue, isLoading) {
+   if (isLoading || newValue == '') {
+      return;
+   }
+
+   test_1();//Type appropriate comment here, and begin script below
+
+} 
