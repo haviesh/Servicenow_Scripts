@@ -1,0 +1,35 @@
+var x=[];
+var y=[];
+var z = [];
+
+var from_time = new GlideDateTime(current.variables.aprvl_start_time);
+from_time.subtract(18000000);
+workflow.scratchpad.var4 = from_time;
+x = from_time.toString().split(" ");
+workflow.scratchpad.var1 = x[1];
+
+
+var to_time = new GlideDateTime(current.variables.aprvl_end_time);
+to_time.subtract(18000000);
+workflow.scratchpad.var5 = to_time;
+y = to_time.toString().split(" ");
+workflow.scratchpad.var2 = y[1];
+
+
+//gs.log(new_start_date+'approval start time');
+//gs.log(new_end_date+'approval end time');
+var curr_time = new GlideDateTime(gs.nowDateTime());
+z=curr_time.toString().split(" ");
+workflow.scratchpad.var3 = z[1];
+=======================================if in wf=============================
+answer = ifScript();
+ 
+  function ifScript() { 
+        if ((workflow.scratchpad.var1<=workflow.scratchpad.var3) && (workflow.scratchpad.var3<workflow.scratchpad.var2)){
+            return 'yes';
+        }
+        else{
+            return 'no';
+        }
+      
+  }
