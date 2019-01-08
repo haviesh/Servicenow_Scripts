@@ -1,0 +1,35 @@
+On Load client script
+function onLoad() {
+	var gr = new GlideAjax('checkMemShip');
+	gr.addParam('sysparm_name','checkMem');
+	gr.getXML(setEnvConfig);
+	function setEnvConfig(response){
+		var answer = response.responseXML.documentElement.getAttribute("answer");
+		if(answer == 'true'){
+			g_form.setDisplay('u_not_approved_prior_to_implementation', true);
+			g_form.setMandatory('u_not_approved_prior_to_implementation', true);
+		}else{
+			g_form.setDisplay('u_not_approved_prior_to_implementation',false);
+		}
+		
+	}
+}
+
+
+Script include
+var checkMemShip = Class.create();
+checkMemShip.prototype = Object.extendsObject(AbstractAjaxProcessor, {
+	checkMem : function() {
+		var a = gs.getUserID();
+		var grp = new GlideRecord('sys_user_grmember');
+		grp.addQuery('user',a);
+		grp.query();
+		while(grp.next()){
+			if(gs.getUser().isMemberOf('Change Management')){
+				return true;
+			}
+			else{
+				return false;
+			}
+		}
+		
