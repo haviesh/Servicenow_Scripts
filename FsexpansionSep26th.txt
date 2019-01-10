@@ -1,0 +1,193 @@
+#!/bin/bash
+#File System Expansion for existing file system.Filesystem that has to be extended should be the first argument and size #to be expanded should be passed as the second argument in M or G whole numbers , eg: 10G or 10M
+
+#If filesystem type is of ext* following function will be called
+extfstype()
+{
+if [[ $freesize == *G || $freesize == *g ]] && [[ $size1 == *m || $size1 == *M ]]
+then
+lvextend -L+$size1 $fsexpand
+resize2fs $fsexpand
+afteraddition=`df -h $filesystem`
+echo  "INFO: Space added successfully \n $afteraddition" 
+
+elif [ $pfcom -gt $scom ]
+then
+lvextend -L+$size1 $fsexpand
+resize2fs $fsexpand
+afteraddition=`df -h $filesystem`
+echo  "INFO: Space added successfully \n $afteraddition"
+
+elif [[ $freesize == *M || $freesize == *m ]] && [[ $size1 == *m || $size1 == *M ]]
+then
+if [ $pfcom -gt $scom ]
+then
+lvextend -L+$size1 $fsexpand
+resize2fs $fsexpand
+afteraddition=`df -h $filesystem`
+echo  "INFO: Space added successfully \n $afteraddition"
+fi
+
+else
+echo  "ERROR: \e[1;34m Space not available , please rerun the script once space is added to volume group.\e[0m" 
+fi
+}
+
+#If filesystem is xfs following function will be called
+xfstype()
+{
+if [[ $freesize == *G || $freesize == *g ]] && [[ $size1 == *m || $size1 == *M ]]
+then
+xfs_growfs $fsexpand -D $size1
+afteraddition=`df -h $filesystem`
+echo  "INFO: Space added successfully \n $afteraddition" 
+
+elif [ $pfcom -gt $scom ]
+then
+xfs_growfs $fsexpand -D $size1
+afteraddition=`df -h $filesystem`
+echo  "INFO: Space added successfully \n $afteraddition"
+
+elif [[ $freesize == *M || $freesize == *m ]] && [[ $size1 == *m || $size1 == *M ]]
+then
+if [ $pfcom -gt $scom ]
+then
+xfs_growfs $fsexpand -D $size1
+afteraddition=`df -h $filesystem`
+echo  "INFO: Space added successfully \n $afteraddition"
+fi
+
+else
+echo  "ERROR: \e[1;34m Space not available , please rerun the script once space is added to volume group.\e[0m" 
+fi
+
+}
+
+find . -type f -name 'fsexpansion_*.log' -mtime +1 -exec rm {} \;
+today=`date +%Y-%m-%d.%H:%M:%S`
+os=`uname`
+
+#Script will execute only for Linux OS servers and exit for the rest.
+if [ $os == Aix ]
+then
+echo  "ERROR: As the server's operating system is Aix , script will exit." 
+exit 1
+fi
+
+filesystem=`echo "First arg: $1" | cut -d : -f2`
+size1=`echo "Second arg: $2" | cut -d : -f2 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'`
+
+#If runtime arguments are not passed script will exit
+if [ $# -ne 2 ]
+then
+echo "ERROR: No arguments supplied, Please pass the filesysten and size in G. eg:  /testfs 1G"
+exit 1
+fi
+
+#If the arguments are empty script will exit
+if [ -z $filesystem ] && [ -z $size1 ] 
+then
+echo  "ERROR: The mandatory parameter values are not passed, hence the script will exit." 
+exit 1
+fi
+
+#If the requested size is of decimal numbers script will exit. Please pass it in whole numbers
+if [[ $size1 == *.* ]]
+then
+echo "ERROR: Please pass the size in whole numbers, script will exit"
+exit 1
+fi
+
+#Checks for the existence of fileystem in the destination server
+presence=`df -h $filesystem 2> outfile | cat outfile | grep -i No | wc -l`
+if [[ $presence != 0 ]]
+then
+echo "ERROR: Right filesystem is not passed and it is not available in the destination server"
+rm -f outfile
+exit 1
+fi
+
+echo -L+$size1
+echo $filesystem
+echo $size1
+
+#If the requested size is not in G or M , script will exit
+if [[ $size1 != *[gGmM] ]]
+then
+echo  "ERROR: \e[1;34m Please pass the size1 in G or M, Script will exit, example pattern for size1 2G.\e[0m" 
+exit 1
+fi
+
+
+scom=`echo $size1 | rev | cut -c 2- | rev`
+echo  " Size1 requested for expansion is $size1 " 
+
+fsexpand=`df -h $filesystem | awk '{print $1}' | grep /`
+echo  " File sytem request for expansion :- $fsexpand " 
+
+relvg=`df -h $filesystem | awk '{print $1}' | grep / | cut -d '-' -f2`
+capvg=`lvs | grep -i $relvg`
+echo  " Capturing the volume group details :- $capvg " 
+
+vgroup=`lvs | grep -i $relvg | awk '{print $2}'`
+echo  " Volume group of the filesystem :- $vgroup " 
+echo  "Checking the free size1 in $vgroup for expanding filesystem $fsexpand " 
+
+freesize=`vgs $vgroup | awk '{print $7}' | grep -Ev VFree`
+echo  " Available space is $freesize in related $vgroup of $fsexpand " 
+fcom=`echo $freesize | rev | cut -c 2- | rev`
+
+#If the respective volume group freesize is in MB and the requested size is in GB script will exit
+if [[ $freesize == *M || $freesize == *m ]] && [[ $size1 == *g || $size1 == *G ]]
+then
+echo  "ERROR: \e[1;34m Script will exit as free size is in MB and cannot expand file system $fsexpand.\e[0m" 
+exit 1
+fi
+
+#If the volume group free size is of decimal converts it to a whole number for comparison to progress with expansion.
+if [[ "$fcom" =~ ^[0-9]+(\.[0-9]+)?$ ]]
+then
+   pfcom=`echo $fcom |awk '{print int($1+0.5)}'`
+else
+   pfcom=`echo $fcom`
+fi
+
+#Check if after alotting the requested space it should not exceed 75% of the available space on the server
+value1=`echo $scom/$pfcom|bc -l`
+finalval=`echo $value1*100|bc -l`
+echo $finalval
+if [[ "$finalval" =~ ^[0-9]+(\.[0-9]+)?$ ]]
+then
+   final=`echo $finalval |awk '{print int($1+0.5)}'`
+   echo $final
+else
+   final=`echo $finalval`
+   echo $final
+fi
+
+if [[ $final -gt 75 ]]
+then
+echo "Script will exit, as the requested space exceeds available space on the server after allocation of the requested space."
+exit 1
+fi
+
+#Check if volume group is og rootvg. Script will exit , if it is on rootvg
+
+if [[ $vgroup == rootvg ]]
+then
+echo "As the file system is on Root VG it will not be expanded, Hence the script will exit."
+exit 1
+fi
+
+#Filesystem type check => ext* or xfs based on which the respective function will be called
+df -T $fsexpand  >> fstype
+checktype=`cat fstype | sed -n 3p | awk '{print $1}'`
+echo  "Filesystem type is $checktype" 
+if [[ $checktype != ext* ]]
+then
+xfstype
+rm fstype
+else
+extfstype
+rm fstype
+fi

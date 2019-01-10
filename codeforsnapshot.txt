@@ -1,0 +1,8 @@
+cp ${syncFile("home_vm_fs_cleanup.sh")} /home/snorch/home_vm_fs_cleanup.sh
+chmod +x /home/snorch/home_vm_fs_cleanup.sh
+dzdo /home/snorch/home_vm_fs_cleanup.sh  ${activityInput.filesystem} ${activityInput.size1}
+rm /home/snorch/home_vm_fs_cleanup.sh
+
+
+SCAT - FileSystem Expansion- HK - 15OCT2018
+SCAT -File Expansion Unix Theme - SK - 18JUN2018
