@@ -1,0 +1,306 @@
+var CMDBServerCleanUpScripts = Class.create();
+CMDBServerCleanUpScripts.prototype = {
+    initialize: function() {
+    },
+
+/*
+a. will automatically prepare an array with duplicate CI
+b. will find the most relevant CI amoung all duplicate CI's
+c. will update the most relevant CI with status as Pending Repair IPC
+d. Will move all the IPC and task records attached with duplicate CI's to the new CI.
+e. Will update the affected CI's
+*/	
+gatherAndUpdateCI:function(query , table)	{
+	var response = this.getCIArray(query, table);
+    var sysid = this.getMostRelevantCI(response, table);	
+	for(var arr=0;arr<response.length;arr++){
+		if(response[arr] != sysid ) {// move ipc records to most relevant ci{
+		this.updateCIStatusandIPCRecords(response[arr],sysid,table);
+		}
+	}
+},
+	
+/*
+// function to update the CI status and map the IPC record and affectec ci to correct CI from server class
+*/	
+
+updateCIStatusandIPCRecords : function( oldCI, newCI, table){
+  this.updateIPCRecords(oldCI, newCI);
+  this.updateCiStatus(oldCI, 'Pending Repair',table );
+  this.updateCiStatus(newCI, 'Pending Repair IPC',table );	
+  this.updateAffectedCi(oldCI, newCI); // update the task_Ci table. old CI = Non Compliant, New Ci - Compliant
+},	
+	
+
+/*
+// function to update the IPC records with new CI
+*/
+updateIPCRecords : function(oldCI,newCI)
+{
+ var task = new GlideRecord('task');
+ task.addQuery('cmdb_ci', oldCI);
+ task.query();
+ task.autoSysFields(false);
+ task.setWorkflow(false);
+ while(task.next()){
+	gs.log('MovingCI -' + oldCI + " tasks to new CI - "+ newCI );	
+	task.cmdb_ci = newCI;
+	task.update(); 
+ }	
+if(task.getRowCount() == 0){
+	gs.log('no IPC records are found found with the non compliant CI ='+ oldCI );
+}	
+},	
+
+/*
+// function to update the CI status
+*/	
+updateCiStatus : function(sysid,status,table)
+{
+	  var ci = new GlideRecord(table);
+	  ci.addQuery('sys_id',sysid);
+	  ci.query();
+	  ci.autoSysFields(false);
+      ci.setWorkflow(false);	
+	  if(ci.next()){
+		  if(status == 'Pending Repair' ){
+		  ci.install_status = '5';	 
+		  gs.log('CI with sys id - '+ ci.sys_id + 'has been marked as Pending Repair');	  
+		  }if(status == 'Pending Repair IPC' ){
+		    gs.log('CI with sys id - '+ ci.sys_id + 'has been marked as Pending Repair IPC');	  	  
+		   ci.install_status = '101';   
+		}
+	   ci.update();	  
+	  }	
+},
+	
+/*
+// function to update the non compliant affected ci with compliant affected ci
+*/
+updateAffectedCi : function(nonComplaint, Compliant)
+{
+	
+	var affectedCI = new GlideRecord('task_ci');
+	affectedCI.addQuery('ci_item',nonComplaint);
+	affectedCI.query();
+	affectedCI.setWorkflow(false);
+	affectedCI.autoSysFields(false);
+	while(affectedCI._next())
+	{  		
+		gs.log('Moving Affected CI. Non Compliant Ci - '+ nonComplaint+ ', to complaint CI - ' +Compliant);
+		affectedCI.ci_item = Compliant;
+		affectedCI.update();	
+	}
+	
+},
+	
+/*
+function to get the array of ci
+*/
+getCIArray : function(query,table){
+      var ids=[];
+	  var sys;
+	  var ci = new GlideRecord(table);
+	  ci.addEncodedQuery(query);
+	  ci.query();
+	  while(ci.next()){ 
+	  gs.log('Matching Duplicate CI ip address is' + ci.sys_id);
+	  ids.push(ci.sys_id.toString());
+	  }
+  return ids;
+},	
+	
+	
+/*
+// find the most relevant CI
+*/
+getMostRelevantCI : function(CIList, table) // input the CI where duplicate check to be perfomed
+{
+	var results=[];	
+	for(var i=0;i<CIList.length;i++)
+	{	
+		var server = new GlideRecord(table);
+		server.addQuery('sys_id',CIList[i]);
+		server.query();
+		var result;	
+		if(server.next()) // iterate through mandatory fields check
+		{     
+			if(!JSUtil.nil(server.name) && server.name!='None'){
+				result = 'true';	 
+			}
+		   var ipRegex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/; 	
+			if(!JSUtil.nil(server.ip_address) && server.ip_address!='None' && ipRegex.test(server.ip_address)){
+				result = result + 'true';	 
+			}
+			if(!JSUtil.nil(server.serial_number) && server.serial_number!='None'){
+				result = result + 'true';	 
+			}
+			if(!JSUtil.nil(server.os) && server.os!='None'){
+				result = result + 'true';	 
+			}
+			if(!JSUtil.nil(server.manufacturer) && server.manufacturer!='None'){
+				result = result + 'true';	 
+			}
+			if(!JSUtil.nil(server.model_id) && server.model_id!='None'){
+				result = result + 'true';	  
+			}
+			if(JSUtil.nil(result)){
+				result = 'false';	  
+			}
+
+			var set = {"len" : result.length , "sysid" : CIList[i]};
+			results.push(set);	 
+		}		
+	}
+
+
+	var largest= 0;
+	for (i=0; i<=largest;i++)
+	{
+		if (results[i].len>largest) {
+			largest=results[i].len;
+		}
+	}
+
+	var sorted=[];
+	var id;
+	for(var c = 0; c<results.length;c++)
+	{
+		if(results[c].len == largest)
+		{
+			id = results[c].sysid;
+			sorted.push(id);
+		}
+	}
+    // compare the ci update time if all the ci have same data.
+	var mostrelevantCI = new GlideRecord('cmdb_ci_server');
+	mostrelevantCI.addEncodedQuery('sys_idIN'+sorted);
+	mostrelevantCI.orderByDesc('sys_updated_on');
+	mostrelevantCI.setLimit(1);
+	mostrelevantCI.query();
+	if (mostrelevantCI.next()){
+		gs.print ('Compliant CI is - '+mostrelevantCI.sys_id + ' - ' + mostrelevantCI.sys_updated_on.getDisplayValue());
+		return mostrelevantCI.sys_id;
+	}
+
+},
+	
+/***************************************************** functions for cleanup of ci with duplicate ip adddress***********************************/  	
+	
+getDuplicateIPAddressandCount_Server : function()
+	{	
+		 var gaDupCheck1 = new GlideAggregate('cmdb_ci_server'); 
+		 gaDupCheck1.addQuery('active','true'); 
+		 gaDupCheck1.addEncodedQuery('ip_addressISNOTEMPTY^ip_address!=None');
+		 gaDupCheck1.addAggregate('COUNT', 'ip_address'); 
+		 gaDupCheck1.groupBy('ip_address'); 
+		 gaDupCheck1.addHaving('COUNT', '>', 1); 
+		 gaDupCheck1.query(); 
+		while(gaDupCheck1.next())
+		{ 
+			gs.log(gaDupCheck1.ip_address);
+			gs.log(gaDupCheck1.getAggregate('COUNT','ip_address'));
+		    this.gatherAndUpdateCI('ip_address='+gaDupCheck1.ip_address, 'cmdb_ci_server'); // gather and update the CI status and IPC records.
+			
+		 } 
+},		
+  
+	
+/***************************************************** functions for cleanup of duplicate ci with combination of name and ip address***********************************/  
+
+getDuplicateServerCiCombination_NameAndIpAddress : function()
+{
+	var nameandip = new GlideAggregate('cmdb_ci_server'); 
+    nameandip.addEncodedQuery('nameISNOTEMPTY^name!=None^ip_addressISNOTEMPTY');
+	nameandip.addAggregate('COUNT');
+	nameandip.groupBy('ip_address'); 
+    nameandip.groupBy('name'); 
+	nameandip.addHaving('COUNT', '>', 1); 
+	nameandip.query(); 
+	while(nameandip.next())
+		{ 
+           gs.log('IP address - ' + nameandip.ip_address+' , Name -' + nameandip.name);
+           gs.log(nameandip.getAggregate('COUNT'));	 // 
+		   this.gatherAndUpdateCI('ip_address='+nameandip.ip_address+'^name='+nameandip.name, 'cmdb_ci_server'); // gather and update the CI status and IPC records.
+			
+		 }
+},	
+	
+	
+/***************************************************** functions for cleanup of duplicate ci with combination of  name and Serial number***********************************/	
+
+getDuplicateServerCiCombination_NameAndSerialNumber : function()
+{
+	var nameandserial = new GlideAggregate('cmdb_ci_server'); 
+    nameandserial.addEncodedQuery('nameISNOTEMPTY^name!=None^serial_numberISNOTEMPTY^serial_number!=None');
+	nameandserial.addAggregate('COUNT');
+	nameandserial.groupBy('serial_number'); 
+    nameandserial.groupBy('name'); 
+	nameandserial.addHaving('COUNT', '>', 1); 
+	nameandserial.query(); 
+	while(nameandserial.next())
+		{ 
+           gs.log('Name - ' + nameandserial.name+' , Serial Number -' + nameandserial.serial_number);
+           gs.log(nameandserial.getAggregate('COUNT'));	
+		   this.gatherAndUpdateCI('serial_number='+nameandserial.serial_number+'^name='+nameandserial.name, 'cmdb_ci_server'); // gather and update the CI status and IPC records.
+			
+		 }
+},
+	
+/***************************************************** functions for cleanup of duplicate ci with combination of serial number and ip address***********************************/  
+	
+getDuplicateServerCiCombination_SerialNumberAndIpAddress : function()
+{
+	var ipandserial = new GlideAggregate('cmdb_ci_server'); 
+    ipandserial.addEncodedQuery('ip_addressISNOTEMPTY^ip_address!=None^serial_numberISNOTEMPTY^serial_number!=None');
+	ipandserial.addAggregate('COUNT');
+	ipandserial.groupBy('serial_number'); 
+    ipandserial.groupBy('ip_address'); 
+	ipandserial.addHaving('COUNT', '>', 1); 
+	ipandserial.query(); 
+	while(ipandserial.next())
+		{ 
+           gs.log('IP Address - ' + ipandserial.ip_address+' , Serial Number -' + ipandserial.serial_number);
+           gs.log(ipandserial.getAggregate('COUNT'));	
+		   this.gatherAndUpdateCI('ip_address='+ipandserial.ip_address+'^serial_number='+ipandserial.serial_number, 'cmdb_ci_server'); // gather and update the CI status and IPC records.
+		 }
+},
+
+/***************************************************** functions for cleanup of CI with duplicate Serial Number***********************************/  
+getDuplicateServerCi_SerialNumber : function()
+{
+	var serial = new GlideAggregate('cmdb_ci_server'); 
+    serial.addEncodedQuery('serial_numberISNOTEMPTY^serial_number!=None');
+	serial.addAggregate('COUNT');
+	serial.groupBy('serial_number'); 
+  	serial.addHaving('COUNT', '>', 1); 
+	serial.query(); 
+	while(serial.next())
+		{ 
+           gs.log('Serial Number - ' + serial.serial_number);
+           gs.log(serial.getAggregate('COUNT'));	
+		   this.gatherAndUpdateCI('serial_number='+serial.serial_number, 'cmdb_ci_server'); // gather and update the CI status and IPC records.
+		 }
+},	
+/***************************************************** functions for cleanup of CI with duplicate name***********************************/  
+getDuplicateServerCi_Name : function()
+{
+	var nam = new GlideAggregate('cmdb_ci_server'); 
+    nam.addEncodedQuery('nameISNOTEMPTY^name!=None');
+	nam.addAggregate('COUNT');
+	nam.groupBy('name'); 
+  	nam.addHaving('COUNT', '>', 1); 
+	nam.query(); 
+	while(nam.next())
+		{ 
+           gs.log('Name - ' + nam.name);
+           gs.log(nam.getAggregate('COUNT'));	 
+		   this.gatherAndUpdateCI('name='+nam.name, 'cmdb_ci_server'); // gather and update the CI status and IPC records.
+		 }
+},		
+	
+	
+		
+	
+    type: 'CMDBServerCleanUpScripts'
+};
