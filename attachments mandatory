@@ -1,0 +1,11 @@
+function onSubmit() {
+var cat_id = gel('sysparm_item_guid').value;
+var gr = new GlideRecord("sys_attachment");
+gr.addQuery("table_name", "sc_cart_item");
+gr.addQuery("table_sys_id", cat_id);
+gr.query();
+if (!gr.next()) {
+	alert('You must attach a completed PPCC Matrix and High-level System Diagram before submitting this request.');
+	return false;
+}
+}
