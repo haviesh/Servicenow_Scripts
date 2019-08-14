@@ -1,0 +1,15 @@
+function onSubmit() {
+  try { //Works in non-portal ui
+  var attachments = document.getElementById('header_attachment_list_label');
+  if (attachments.style.visibility == 'hidden' || attachments.style.display == 'none' ) {
+  alert('You must attach a completed PPCC Matrix and High-level System Diagram before submitting this request.');
+  return false;
+  }
+  } catch(e) { //For Service Portal
+  var count = getSCAttachmentCount();
+  if(count <= 0) {
+  alert('You must attach a completed PPCC Matrix and High-level System Diagram before submitting this request.');
+  return false;
+  }
+  }
+}
