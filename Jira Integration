@@ -1,0 +1,274 @@
+var JIRAIssueUtil = Class.create();
+JIRAIssueUtil.prototype = {
+    initialize: function(importIset) {
+        /*********************************
+              REST Message Header Parameter
+            **********************************/
+        this.importiset = importIset;
+        this.checkenvironment = undefined;
+        this.endpoint = undefined;
+        this.atlassian = gs.getProperty('incident.Jira.parameter.atlassian');
+        this.Bigipserver = gs.getProperty('incident.Jira.parameter.Bigipserver');
+        this.connection = gs.getProperty('incident.Jira.parameter.connection');
+        this.contenttype = gs.getProperty('incident.Jira.parameter.contenttype');
+        this.endpointurl = gs.getProperty('incident.Jira.instance.url');
+
+        /*********************************
+              Set Dynamic URL for Prod and QA
+            **********************************/
+        if (gs.getProperty('instance_name') == 'ppl')
+            this.setProductionURL();
+
+        else
+            this.setQAURL();
+    },
+    setProductionURL: function(url) {
+
+        var produrl = JSON.parse(this.endpointurl);
+        this.endpoint = produrl[0];
+        this.checkenvironment = 'Prod';
+        // Allow option to override the target URL for testing
+        if (url)
+            this.endpoint = url;
+    },
+    // Set the API to call the jira QA API URL.
+    // (Optional) This function can be called in production prior to executing API call. To be used only for testing purposes.
+    setQAURL: function(url) {
+        var qaurl = JSON.parse(this.endpointurl);
+        this.endpoint = qaurl[1];
+        // Allow option to override the target URL for testing
+        this.checkenvironment = 'QA';
+        if (url)
+            this.endpoint = url;
+
+    },
+    /********************
+     *to get the latest created record on jira table and send the lastsync time to endpoin */
+
+    getlastSyncTime: function(importIset) {
+        var lastsync;
+
+        var synctime = new GlideRecord('u_jira_issues');
+        synctime.addQuery('sys_import_set', this.importiset);
+        synctime.orderByDesc('sys_created_on');
+        synctime.setLimit(1);
+        synctime.query();
+        if (synctime.next()) {
+            var currenttime = new GlideDateTime();
+            var lastsynctime = synctime.sys_created_on;
+            var differencecount = gs.dateDiff(lastsynctime, currenttime, true);
+            lastsync = Math.round(differencecount / 60);
+
+        } else {
+            lastsync = gs.getProperty('incident.jiraintegration.maxupdatetime');
+
+        }
+
+        return lastsync;
+    },
+
+    /****************************************************************
+     ** This fucntion is called from Schedueld Job Daily
+     ** For Authentication KeyMaker is used
+     ** processRequest once status is 200
+     *********************************************************************/
+    makeGETCall: function(lastsync) {
+        try {
+
+
+            var response;
+            var responseBody1;
+            var jsonBodyjira;
+            var httpStatus;
+            var authorizationkey = this.getAuthorization();
+            var timesincelstSync = this.getlastSyncTime(lastsync);
+
+
+
+            var basickey = JSON.parse(authorizationkey);
+            var offset_const = gs.getProperty('incident.jiraintegration.maxresultCount'); //Max result url will take
+            var offset_val = 0;
+
+            var r = new sn_ws.RESTMessageV2('JIRA', 'GET Jira Issues');
+            r.setStringParameterNoEscape('url', this.endpoint + '/search?jql=project=LI%26updated%3E-' + timesincelstSync + 'm&startAt=' + offset_val + '&maxResults=' + offset_const);
+            //Dynamically sets endpoint.
+            r.setBasicAuth(basickey.username, basickey.password);
+            r.setStringParameterNoEscape('atlassian', this.atlassian);
+            r.setStringParameterNoEscape('Bigipserver', this.Bigipserver);
+            r.setStringParameterNoEscape('connection', this.connection);
+            // r.setStringParameterNoEscape('contenttype', this.contenttype);
+            r.setEccParameter("skip_sensor", "true");
+            response = r.execute();
+            responseBody1 = response.getBody();
+            jsonBodyjira = JSON.parse(responseBody1);
+            httpStatus = response.getStatusCode();
+            gs.debug('Enable debugger to get response body for first call :' + jsonBodyjira);
+            gs.debug('Enable debugger to get Http status for first call :' + httpStatus);
+            this.processtheResponse(jsonBodyjira, httpStatus);
+            var totalCount = jsonBodyjira.total;
+
+            var counter = totalCount;
+            offset_val = gs.getProperty('incident.jiraintegration.maxresultCount');
+            offset_val++;
+
+            var offset_int = parseInt(offset_const, 10);
+            while ((counter / offset_int) >= 1) {
+                var countINC = offset_val.toString();
+                var r1 = new sn_ws.RESTMessageV2('JIRA', 'GET Jira Issues');
+                r1.setStringParameterNoEscape('url', this.endpoint + '/search?jql=project=LI%26updated%3E-' + timesincelstSync + 'm&startAt=' + countINC + '&maxResults=' + offset_const);
+                r1.setBasicAuth(basickey.username, basickey.password);
+                r1.setStringParameterNoEscape('atlassian', this.atlassian);
+                r1.setStringParameterNoEscape('Bigipserver', this.Bigipserver);
+                r1.setStringParameterNoEscape('connection', this.connection);
+                //  r1.setStringParameterNoEscape('contenttype', this.contenttype);
+                r1.setEccParameter("skip_sensor", "true");
+                response = r1.execute();
+                responseBody1 = response.getBody();
+                jsonBodyjira = JSON.parse(responseBody1);
+                httpStatus = response.getStatusCode();
+                this.processtheResponse(jsonBodyjira, httpStatus);
+                gs.debug('Enable debugger to get Http status :' + httpStatus);
+                offset_val = offset_val + offset_int;
+                counter = counter - offset_int;
+                gs.debug('Enable debugger to get response body :' + jsonBodyjira);
+                gs.debug('Enable debugger to get KeyMaker response :' + this.getAuthorization());
+            }
+        } catch (ex) {
+            var message = ex.message;
+        }
+    },
+
+    processtheResponse: function(jsonBodyjira, httpStatus) {
+
+        if (httpStatus != 200) {
+            var httpResponse = response.getErrorCode();
+            var httpMessage = response.getErrorMessage();
+            var nonExceptionErrorLog = " HTTP Status Code:" + httpCode + " HTTP Error Code: " + httpResponse + " HTTP Error Message: " + httpMessage + responseBody;
+            this.caughtException = false;
+            throw nonExceptionErrorLog;
+        } else
+            this.processRequest(jsonBodyjira);
+    },
+
+
+    /*********************************
+     *KeyMaker integration is called to retrive Username and Password for Jira authentication 
+     **********************************/
+
+    getAuthorization: function() {
+        var ac = new x_payp2_keymaker.KeyMakerAPI(); // Initiate KeyMaker API
+        ac.setTarget(gs.getProperty('incident.jira.integration.keymaker.ac')); // Define AC to Get
+        return ac.getAC(); // Execute REST GET Call. Function will return AC
+    },
+
+
+    /**********************************************************************************
+     ** Create new import set for staging table
+     ** Call funtion to enter data in staging table
+     **Close import set when data has been enetered into Staging table
+     **Transform Imprt Set to Update PTASK
+     ********************************************************************/
+
+    processRequest: function(jsonBodyjira) {
+        this.createNewSet();
+        this.processItem(jsonBodyjira);
+        this.closeSet();
+        this.transformImportSet();
+    },
+
+    //**Create new Import Set referred to in Staging Table **//
+
+    createNewSet: function() {
+        this.set = new GlideRecord("sys_import_set");
+        this.set.initialize();
+        this.set.short_description = "loaded from script";
+        this.set.table_name = 'u_jira_issues';
+        this.setNumber = this.set.insert();
+    },
+
+    //****Enter data in Staging Table and associate with Open Import Set **///
+    processItem: function(jsonBodyjira) {
+
+
+        var getvalue = '';
+        var backendvalue = '';
+        if (this.checkenvironment == 'Prod') {
+            getvalue = gs.getProperty('incident.jira.api.fieldID.Prod');
+            backendvalue = JSON.parse(getvalue);
+
+        } else {
+            getvalue = gs.getProperty('incident.jira.api.fieldID.QA');
+            backendvalue = JSON.parse(getvalue);
+        }
+
+        var isssueslength = jsonBodyjira.issues;
+
+        for (var i = 0; i < isssueslength.length; i++) {
+
+
+
+            var row = new GlideRecord("u_jira_issues");
+
+            row.initialize();
+            row.sys_import_set = this.setNumber; // Associate Import Set
+            row.setValue('u_issue_type', jsonBodyjira.issues[i].fields.issuetype.name);
+            row.setValue('u_correlation_id', jsonBodyjira.issues[i].id); // Store JIRA ID
+            row.setValue('u_summary', jsonBodyjira.issues[i].fields.summary);
+            row.setValue('u_state', jsonBodyjira.issues[i].fields.status.name);
+            row.setValue('u_correlation_display', jsonBodyjira.issues[i].key);
+            row.setValue('u_reporter', jsonBodyjira.issues[i].fields.reporter.name);
+            row.setValue('u_details', jsonBodyjira.issues[i].fields.description);
+            row.setValue('u_impact_description', jsonBodyjira.issues[i].fields.customfield_23433);
+            row.setValue('u_priority', jsonBodyjira.issues[i].fields.priority.name);
+            row.setValue('u_resolution_date', jsonBodyjira.issues[i].fields.resolutiondate);
+            row.setValue('u_reason_for_outage_details', jsonBodyjira.issues[i].fields.customfield_14436);
+            row.setValue('u_app_prod_service', jsonBodyjira.issues[i].fields[backendvalue[1]]);
+            row.setValue('u_tech_service', jsonBodyjira.issues[i].fields[backendvalue[2]]);
+            row.setValue('u_app_prod_service', jsonBodyjira.issues[i].fields[backendvalue[1]]);
+            row.setValue('u_assignee', jsonBodyjira.issues[i].fields.assignee.name);
+
+
+            if (jsonBodyjira.issues[i].fields[backendvalue[0]] == null) {
+                row.setValue('u_brand', jsonBodyjira.issues[i].fields[backendvalue[0]]);
+
+            } else {
+
+                row.setValue('u_brand', jsonBodyjira.issues[i].fields[backendvalue[0]].value);
+
+            }
+            if (jsonBodyjira.issues[i].fields.customfield_23331 == null) {
+                row.setValue('u_software_components', jsonBodyjira.issues[i].fields.customfield_23331);
+            } else {
+                row.setValue('u_software_components', jsonBodyjira.issues[i].fields.customfield_23331.value);
+            }
+            if (jsonBodyjira.issues[i].fields[backendvalue[4]] == null) {
+                row.setValue('u_environment', jsonBodyjira.issues[i].fields[backendvalue[4]]);
+            } else {
+                row.setValue('u_environment', jsonBodyjira.issues[i].fields[backendvalue[4]].value);
+            }
+            if (jsonBodyjira.issues[i].fields[backendvalue[3]] == null) {
+                row.setValue('u_who_is_impacted', jsonBodyjira.issues[i].fields[backendvalue[3]]);
+            } else {
+                row.setValue('u_who_is_impacted', jsonBodyjira.issues[i].fields[backendvalue[3]].value);
+            }
+
+            row.insert();
+        }
+    },
+
+
+    //** Close Import Set where data has been entered**//
+    closeSet: function() {
+        this.set.state = "loaded";
+        this.set.update();
+    },
+    //**Run transform one Import Set is loaded**//
+    transformImportSet: function() {
+        var tranformMap = gs.getProperty('incident.jira.integration.tranform.map'); // transfrom map "IPC jira INC update"
+        var transformSet = new GlideImportSetTransformerWorker(this.set.sys_id, tranformMap);
+        transformSet.setBackground(true);
+        transformSet.start();
+    },
+
+    type: 'JIRAIssueUtil '
+};
